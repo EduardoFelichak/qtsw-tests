@@ -2,6 +2,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AuthService } from '../../services/auth.service';
 import { prisma } from '../../utils/prisma';
+import { faker } from '@faker-js/faker';
+import { InvalidCredentialsError } from '../../errors/auth/InvalidCredentialsError';
+import { UserAlreadyRegisteredError } from '../../errors/auth/UserAlreadyRegisteredError';
 
 jest.mock('bcryptjs');
 jest.mock('jsonwebtoken');
@@ -60,6 +63,23 @@ describe('AuthService', () => {
                 name: mockUser.name,
             });
         });
+
+        it('deve lançar o erro UserAlreadyRegisteredError se o e-mail já estiver em uso', async () => {
+            // Arrange (preparar)
+            const newUserPayload = {
+                name: faker.person.fullName(),
+                email: 'email.existente@test.com',
+                password: faker.internet.password(),
+            };
+
+            const mockExistingUser = { id: faker.string.uuid(), ...newUserPayload };
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockExistingUser);
+
+            // Act (agir) & Assert (verificar)
+            await expect(AuthService.registerUser(newUserPayload.email, newUserPayload.password, newUserPayload.name)).rejects.toThrow(
+                UserAlreadyRegisteredError
+            );
+        });
     });
 
     describe('loginUser', () => {
@@ -79,6 +99,39 @@ describe('AuthService', () => {
                 email: mockUser.email,
                 name: mockUser.name,
             });
+        });
+
+        it('deve lançar o erro InvalidCredentialsError para um usuário não existente', async () => {
+            // Arrange (preparar)
+            const fakeEmail = faker.internet.email();
+            const fakePass = faker.internet.password();
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+        
+            // Act (agir) & Assert (verificar)
+            await expect(AuthService.loginUser(fakeEmail, fakePass)).rejects.toThrow(
+                InvalidCredentialsError
+            );
+        });
+
+        it('deve lançar o erro InvalidCredentialsError para um usuário existente com a senha incorreta', async () => {
+            // Arrange (preparar)
+            const emailFornecido = faker.internet.email();
+            const senhaIncorreta = 'senhaIncorreta456';
+        
+            const mockUserDoBanco = {
+                id: faker.string.uuid(),
+                email: emailFornecido,
+                name: faker.person.fullName(),
+                password: 'senhaHasheadaNoBanco', 
+            };
+        
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUserDoBanco);
+            (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+        
+            // Act (agir) & Assert (verificar)
+            await expect(AuthService.loginUser(emailFornecido, senhaIncorreta)).rejects.toThrow(
+                InvalidCredentialsError
+            );
         });
     });
 
@@ -135,4 +188,6 @@ describe('AuthService', () => {
             expect(newToken).toBe('tokenNovo');
         });
     });
+
+
 });
