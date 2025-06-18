@@ -2,6 +2,7 @@ import { InvalidTaskNameError } from '../../errors/task/InvalidTaskNameError';
 import { TaskNotFoundError } from '../../errors/task/TaskNotFoundError';
 import { TaskService } from '../../services/task.service';
 import { prisma } from '../../utils/prisma';
+import { faker } from '@faker-js/faker';
 
 jest.mock('../../utils/prisma', () => ({
     prisma: {
@@ -124,6 +125,20 @@ describe('TaskService', () => {
             // Assert (verificar)
             expect(resultado.dueDate).toBeNull();
         });
+
+        it('deve aceitar descrição nula', async () => {
+            // Arrange (preparar)
+            const dadosEntrada = { title: 'Tarefa', description: undefined };
+            const tarefaEsperada = { id: 2, ...dadosEntrada, userId };
+        
+            (prisma.task.create as jest.Mock).mockResolvedValue(tarefaEsperada);
+        
+            // Act (agir)
+            const resultado = await TaskService.createTask(userId, dadosEntrada);
+            
+            // Assert (verificar)
+            expect(resultado.description).toBeUndefined();
+        });
     });
 
     describe('getTasks', () => {
@@ -163,6 +178,23 @@ describe('TaskService', () => {
 
             expect(resultado).toEqual(tarefasMock);
         });
+
+        it('deve retornar apenas as tarefas que pertencem ao usuário especificado', async () => {
+            // Arrange (preparar)
+            const tarefasParaUsuarioEspecifico = tarefasMock.filter(t => t.userId === userId);
+            (prisma.task.findMany as jest.Mock).mockResolvedValue(tarefasParaUsuarioEspecifico);
+
+            // Act (agir)
+            const resultado = await TaskService.getTasks(userId, {});
+
+            // Assert (verificar)
+            expect(prisma.task.findMany).toHaveBeenCalledWith({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+            });
+            expect(resultado).toEqual(tarefasParaUsuarioEspecifico);
+            expect(resultado.every(t => t.userId === userId)).toBe(true);
+        });
     });
 
     describe('getTaskById', () => {
@@ -187,6 +219,20 @@ describe('TaskService', () => {
             // Assert (verificar)
             await expect(promise).rejects.toBeInstanceOf(TaskNotFoundError);
         });
+
+        it('deve lançar TaskNotFoundError se a tarefa existir mas pertencer a outro usuário', async () => {
+            // Arrange (preparar)
+            const tarefaId = 1; 
+            const idUsuarioDiferente = 99; 
+
+            (prisma.task.findUnique as jest.Mock).mockResolvedValue(null);          
+
+            // Act (agir)
+            const promise = TaskService.getTaskById(idUsuarioDiferente, tarefaId);  
+                    
+            // Assert (verificar)
+            await expect(promise).rejects.toBeInstanceOf(TaskNotFoundError);
+        });
     });
 
     describe('updateTask', () => {
@@ -232,6 +278,21 @@ describe('TaskService', () => {
             // Assert (verificar)
             expect(resultado).toEqual(tarefaAtualizada);
         });
+
+        it('deve lançar o erro TaskNotFoundError ao tentar atualizar uma tarefa que não pertence ao usuário', async () => {
+            // Arrange (preparar)
+            const tarefaId = 1;
+            const outroIdUsuario = 99; 
+            const dadosAtualizacao = { title: 'Título não deve ser atualizado' };
+
+            (prisma.task.update as jest.Mock).mockRejectedValue(new TaskNotFoundError());
+
+            // Act (agir)
+            const promise = TaskService.updateTask(outroIdUsuario, tarefaId, dadosAtualizacao);
+
+            // Assert (verificar)
+            await expect(promise).rejects.toBeInstanceOf(TaskNotFoundError);
+        });
     });
 
     describe('deleteTask', () => {
@@ -246,6 +307,20 @@ describe('TaskService', () => {
             expect(prisma.task.delete).toHaveBeenCalledWith({
                 where: { id: 1, userId },
             });
+        });
+
+        it('deve lançar o erro TaskNotFoundError ao tentar deletar uma tarefa que não pertence ao usuário', async () => {
+            // Arrange (preparar)
+            const tarefaId = 1;
+            const outroIdUsuario = 99; 
+            
+            (prisma.task.delete as jest.Mock).mockRejectedValue(new TaskNotFoundError());
+            
+            // Act (agir)
+            const promise = TaskService.deleteTask(outroIdUsuario, tarefaId);
+            
+            // Assert (verificar)
+            await expect(promise).rejects.toBeInstanceOf(TaskNotFoundError);
         });
     });
 });
