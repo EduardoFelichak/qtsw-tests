@@ -41,5 +41,32 @@ describe('AuthController', () => {
             expect(userInDB?.email).toBe(userData.email);
             expect(userInDB?.password).not.toBe(userData.password);
         });
+
+        it('deve retornar erro ao tentar registrar com um e-mail que já existe', async () => {
+            // Arrange (preparar)
+            const existingUser = {
+                email: 'existente@teste.com',
+                password: 'outrasenha',
+                name: 'Usuário Existente',
+            };
+            await prisma.user.create({
+                data: existingUser,
+            });
+
+            const newUserData = {
+                email: 'existente@teste.com', 
+                password: 'novasenha',
+                name: 'Novo Usuário',
+            };
+
+            // Act (agir)
+            const response = await request(app).post('/api/auth/register').send(newUserData);
+
+            // Assert (verificar)
+            expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+            expect(response.body).toEqual({
+                message: 'Usuário já cadastrado',
+            });
+        });
     });
 });

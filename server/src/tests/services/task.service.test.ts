@@ -229,7 +229,7 @@ describe('TaskService', () => {
 
             // Act (agir)
             const promise = TaskService.getTaskById(idUsuarioDiferente, tarefaId);  
-                    
+
             // Assert (verificar)
             await expect(promise).rejects.toBeInstanceOf(TaskNotFoundError);
         });
@@ -279,7 +279,7 @@ describe('TaskService', () => {
             expect(resultado).toEqual(tarefaAtualizada);
         });
 
-        it('deve lançar o erro TaskNotFoundError ao tentar atualizar uma tarefa que não pertence ao usuário', async () => {
+        it('deve lançar TaskNotFoundError ao atualizar uma tarefa que não pertence ao usuário', async () => {
             // Arrange (preparar)
             const tarefaId = 1;
             const outroIdUsuario = 99; 
@@ -309,7 +309,7 @@ describe('TaskService', () => {
             });
         });
 
-        it('deve lançar o erro TaskNotFoundError ao tentar deletar uma tarefa que não pertence ao usuário', async () => {
+        it('deve lançar TaskNotFoundError ao deletar uma tarefa que não pertence ao usuário', async () => {
             // Arrange (preparar)
             const tarefaId = 1;
             const outroIdUsuario = 99; 

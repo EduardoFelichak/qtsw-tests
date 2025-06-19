@@ -5,6 +5,8 @@ import { prisma } from '../../utils/prisma';
 import { faker } from '@faker-js/faker';
 import { InvalidCredentialsError } from '../../errors/auth/InvalidCredentialsError';
 import { UserAlreadyRegisteredError } from '../../errors/auth/UserAlreadyRegisteredError';
+import { UserNotFoundError } from '../../errors/auth/UserNotFoundError';
+import { InvalidTokenError } from '../../errors/auth/InvalidTokenError';
 
 jest.mock('bcryptjs');
 jest.mock('jsonwebtoken');
@@ -155,6 +157,17 @@ describe('AuthService', () => {
                 createdAt: mockUser.createdAt,
             });
         });
+
+        it('deve lançar o erro UserNotFoundError caso o usuário não seja encontrado', async () => {
+            // Arrange (preparar)
+            const idInexistente = 999;
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    
+            // Act (agir) & Assert (verificar)
+            await expect(AuthService.getUserById(idInexistente)).rejects.toThrow(
+                UserNotFoundError
+            );
+        });
     });
 
     describe('getUserFromTokenPayload', () => {
@@ -186,6 +199,20 @@ describe('AuthService', () => {
 
             // Assert (verificar)
             expect(newToken).toBe('tokenNovo');
+        });
+
+        it('deve lançar o erro InvalidTokenError caso o token antigo seja inválido ou malformado', () => {
+            // Arrange (preparar)
+            const tokenInvalido = 'um.token.qualquer.invalido';
+            const erroDeVerificacao = new Error('JWT malformed');
+            (jwt.verify as jest.Mock).mockImplementation(() => {
+                throw erroDeVerificacao;
+            });
+        
+            // Act (agir) & Assert (verificar) 
+            expect(() => {
+                AuthService.refreshToken(tokenInvalido);
+            }).toThrow(InvalidTokenError);
         });
     });
 

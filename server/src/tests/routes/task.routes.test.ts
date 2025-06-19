@@ -59,4 +59,36 @@ describe('TaskController', () => {
             );
         });
     });
+
+    describe('GET /api/tasks/:id', () => {
+        it('deve retornar uma tarefa específica pelo seu ID', async () => {
+            // Arrange (preparar)
+            const createdTask = await prisma.task.create({
+                data: {
+                    title: `Tarefa para buscar por ID ${new Date().toISOString()}`,
+                    description: 'Descrição da tarefa a ser buscada.',
+                    completed: false,
+                    priority: 'medium',
+                    userId: testUser.id ?? 1,
+                },
+            });
+
+            // Act (agir)
+            const response = await request(app).get(`/api/tasks/${createdTask.id}`);
+
+            // Assert (verificar)
+            expect(response.statusCode).toBe(StatusCodes.OK);
+            expect(response.body).toEqual({
+                id: createdTask.id,
+                title: createdTask.title,
+                description: createdTask.description,
+                completed: createdTask.completed,
+                priority: createdTask.priority,
+                userId: createdTask.userId,
+                dueDate: null, 
+                createdAt: createdTask.createdAt.toISOString(),
+                updatedAt: createdTask.updatedAt.toISOString(),
+            });
+        });
+    });
 });
